@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Recipe App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-image: linear-gradient(to right top, #a2d2ff, #bde0fe, #cddafc, #dcd4f9, #e9d0f6); /* Engaging gradient background */
+            background-attachment: fixed;
+        }
+        /* Custom scrollbar for recipe details modal */
+        .recipe-details-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .recipe-details-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .recipe-details-content::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .recipe-details-content::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Keyframe for fade-in animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Apply fade-in animation to recipe cards and category cards */
+        .animated-card {
+            animation: fadeIn 0.5s ease-out forwards;
+            opacity: 0; /* Start invisible */
+        }
+
+        /* Styling for rating stars */
+        .star {
+            cursor: pointer;
+            font-size: 2.5rem; /* Larger stars */
+            color: #ccc; /* Default gray color */
+            transition: color 0.2s ease-in-out, transform 0.2s ease-in-out;
+        }
+        .star.selected,
+        .star.hovered {
+            color: #ffc107; /* Gold color for selected/hovered stars */
+            transform: scale(1.1); /* Slightly larger on hover/select */
+        }
+        .star:hover ~ .star {
+            color: #ccc; /* Reset color for stars after the hovered one */
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-8 px-4 sm:px-6 lg:px-8">
+
+    <div class="max-w-4xl w-full bg-white shadow-2xl rounded-xl p-6 sm:p-8 border border-gray-100">
+
+        <header class="text-center mb-10">
+            <h1 class="text-5xl sm:text-6xl font-extrabold text-gray-800 mb-3 drop-shadow-md">
+                <span class="text-blue-600">Flavor</span>Finder
+            </h1>
+            <p class="text-xl text-gray-600 font-medium">Discover delicious recipes from around the world!</p>
+        </header>
+
+        <section class="mb-10 flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+            <input
+                type="text"
+                id="searchInput"
+                placeholder="Search for a recipe (e.g., chicken, pasta)"
+                class="flex-grow p-4 border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-400 focus:border-blue-500 text-gray-700 w-full sm:w-auto shadow-sm transition duration-300 ease-in-out"
+            >
+            <button
+                id="searchButton"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl w-full sm:w-auto focus:outline-none focus:ring-4 focus:ring-blue-400"
+            >
+                Search Recipes
+            </button>
+            <button
+                id="clearButton"
+                class="bg-gray-400 hover:bg-gray-500 text-white font-semibold py-4 px-8 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl w-full sm:w-auto focus:outline-none focus:ring-4 focus:ring-gray-300"
+                style="display: none;"
+            >
+                Clear Results
+            </button>
+        </section>
+
+        <section class="mb-10">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">Browse by Category</h2>
+            <div id="categoriesContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                </div>
+        </section>
+
+        <section class="mb-10">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">Browse by Cuisine/Area</h2>
+            <div id="areasContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                </div>
+        </section>
+
+        <div id="loadingIndicator" class="text-center text-blue-600 font-bold text-xl hidden mb-4">
+            Loading...
+        </div>
+
+        <div id="messageDisplay" class="text-center text-red-600 font-semibold text-lg hidden mb-4">
+            No recipes found. Please try a different search term.
+        </div>
+
+        <section id="recipeResults" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+            </section>
+
+        <section class="bg-gray-50 p-6 rounded-xl shadow-lg border border-gray-100 text-center">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Rate Our App!</h2>
+            <p class="text-lg text-gray-600 mb-4">We'd love to hear your feedback.</p>
+
+            <div class="flex justify-center items-center mb-6" id="starRating">
+                <span class="star" data-value="1">&#9733;</span>
+                <span class="star" data-value="2">&#9733;</span>
+                <span class="star" data-value="3">&#9733;</span>
+                <span class="star" data-value="4">&#9733;</span>
+                <span class="star" data-value="5">&#9733;</span>
+            </div>
+
+            <textarea
+                id="feedbackComment"
+                rows="4"
+                placeholder="Share your thoughts and suggestions..."
+                class="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-700 mb-4 shadow-sm"
+            ></textarea>
+
+            <button
+                id="submitRatingButton"
+                class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-purple-400"
+            >
+                Submit Rating
+            </button>
+
+            <div id="ratingMessage" class="mt-4 text-green-600 font-semibold hidden">
+                Thank you for your valuable feedback!
+            </div>
+        </section>
+    </div>
+
+    <div id="recipeDetailsModal" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center p-4 z-50 hidden backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col transform scale-95 opacity-0 transition-all duration-300 ease-out" id="modalContent">
+            <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-200">
+                <h2 id="modalRecipeName" class="text-3xl font-bold text-gray-800"></h2>
+                <button id="closeModalButton" class="text-gray-500 hover:text-gray-700 text-5xl font-light leading-none transition-transform duration-200 hover:rotate-90">&times;</button>
+            </div>
+            <div class="recipe-details-content flex-grow overflow-y-auto pr-4">
+                <img id="modalRecipeImage" src="" alt="Recipe Image" class="w-full h-64 object-cover rounded-lg mb-4 shadow-md border border-gray-200">
+                <h3 class="text-2xl font-semibold text-gray-700 mb-3 border-b pb-2 border-gray-100">Ingredients:</h3>
+                <ul id="modalIngredientsList" class="list-disc list-inside text-gray-700 mb-6 space-y-1"></ul>
+                <h3 class="text-2xl font-semibold text-gray-700 mb-3 border-b pb-2 border-gray-100">Instructions:</h3>
+                <p id="modalInstructions" class="text-gray-700 leading-relaxed text-base"></p>
+                <div id="modalYoutubeLink" class="mt-6 text-center"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get DOM elements
+        const searchInput = document.getElementById('searchInput');
+        const searchButton = document.getElementById('searchButton');
+        const clearButton = document.getElementById('clearButton');
+        const recipeResults = document.getElementById('recipeResults');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const messageDisplay = document.getElementById('messageDisplay');
+        const recipeDetailsModal = document.getElementById('recipeDetailsModal');
+        const closeModalButton = document.getElementById('closeModalButton');
+        const modalRecipeName = document.getElementById('modalRecipeName');
+        const modalRecipeImage = document.getElementById('modalRecipeImage');
+        const modalIngredientsList = document.getElementById('modalIngredientsList');
+        const modalInstructions = document.getElementById('modalInstructions');
+        const modalYoutubeLink = document.getElementById('modalYoutubeLink');
+        const categoriesContainer = document.getElementById('categoriesContainer');
+        const areasContainer = document.getElementById('areasContainer'); // New: Areas container
+        const modalContent = document.getElementById('modalContent'); // Reference to the modal content div
+
+        // Rating section elements
+        const starRatingContainer = document.getElementById('starRating');
+        const stars = document.querySelectorAll('.star');
+        const feedbackComment = document.getElementById('feedbackComment');
+        const submitRatingButton = document.getElementById('submitRatingButton');
+        const ratingMessage = document.getElementById('ratingMessage');
+
+        let selectedRating = 0; // To store the user's selected rating
+
+        // Base URL for TheMealDB API
+        const BASE_API_URL = 'https://www.themealdb.com/api/json/v1/1/';
+
+        /**
+         * Shows the loading indicator and hides other elements.
+         * @param {string} message - The message to display in the loading indicator.
+         */
+        function showLoading(message = 'Loading...') {
+            loadingIndicator.textContent = message;
+            loadingIndicator.classList.remove('hidden');
+            messageDisplay.classList.add('hidden');
+            recipeResults.innerHTML = ''; // Clear previous results
+            clearButton.style.display = 'none'; // Hide clear button initially
+        }
+
+        /**
+         * Hides the loading indicator.
+         */
+        function hideLoading() {
+            loadingIndicator.classList.add('hidden');
+        }
+
+        /**
+         * Displays a message to the user.
+         * @param {string} message - The message to display.
+         * @param {string} type - 'success' or 'error' (determines color).
+         */
+        function showMessage(message, type = 'error') {
+            messageDisplay.textContent = message;
+            messageDisplay.classList.remove('hidden');
+            if (type === 'error') {
+                messageDisplay.classList.remove('text-green-500');
+                messageDisplay.classList.add('text-red-600');
+            } else {
+                messageDisplay.classList.remove('text-red-600');
+                messageDisplay.classList.add('text-green-500');
+            }
+        }
+
+        /**
+         * Hides the message display.
+         */
+        function hideMessage() {
+            messageDisplay.classList.add('hidden');
+        }
+
+        /**
+         * Fetches recipes from TheMealDB API based on the search term.
+         * @param {string} searchTerm - The term to search for.
+         */
+        async function fetchRecipes(searchTerm) {
+            showLoading('Loading recipes...');
+            hideMessage();
+            clearButton.style.display = 'none'; // Hide clear button initially
+
+            try {
+                const response = await fetch(`${BASE_API_URL}search.php?s=${searchTerm}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                displayRecipes(data.meals);
+            } catch (error) {
+                console.error('Error fetching recipes:', error);
+                showMessage('Failed to load recipes. Please try again later.');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        /**
+         * Fetches recipes from TheMealDB API based on the category name.
+         * @param {string} categoryName - The category to filter by.
+         */
+        async function fetchRecipesByCategory(categoryName) {
+            showLoading(`Loading ${categoryName} recipes...`);
+            hideMessage();
+            clearButton.style.display = 'none'; // Hide clear button initially
+
+            try {
+                const response = await fetch(`${BASE_API_URL}filter.php?c=${categoryName}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                displayRecipes(data.meals);
+            } catch (error) {
+                console.error('Error fetching recipes by category:', error);
+                showMessage('Failed to load recipes for this category. Please try again later.');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        /**
+         * Fetches recipes from TheMealDB API based on the area (cuisine) name.
+         * @param {string} areaName - The area/cuisine to filter by.
+         */
+        async function fetchRecipesByArea(areaName) { // New function for areas
+            showLoading(`Loading ${areaName} cuisine recipes...`);
+            hideMessage();
+            clearButton.style.display = 'none';
+
+            try {
+                const response = await fetch(`${BASE_API_URL}filter.php?a=${areaName}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                displayRecipes(data.meals);
+            } catch (error) {
+                console.error('Error fetching recipes by area:', error);
+                showMessage('Failed to load recipes for this cuisine. Please try again later.');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        /**
+         * Displays the fetched recipes as cards in the results container.
+         * @param {Array<Object>} meals - An array of meal objects.
+         */
+        function displayRecipes(meals) {
+            recipeResults.innerHTML = ''; // Clear existing content
+            if (!meals || meals.length === 0) {
+                showMessage('No recipes found. Please try a different search term or category.', 'error');
+                clearButton.style.display = 'none'; // No results, no clear button
+                return;
+            }
+
+            hideMessage(); // Hide no results message
+            clearButton.style.display = 'block'; // Show clear button
+
+            meals.forEach((meal, index) => {
+                const recipeCard = document.createElement('div');
+                recipeCard.classList.add(
+                    'bg-white', 'rounded-xl', 'shadow-md', 'overflow-hidden', 'transform',
+                    'hover:scale-105', 'transition', 'duration-300', 'ease-in-out', 'cursor-pointer',
+                    'flex', 'flex-col', 'animated-card' /* Add animated-card class */
+                );
+                recipeCard.style.animationDelay = `${index * 0.05}s`; /* Stagger animation */
+
+                // Use placeholder image if meal.strMealThumb is missing or broken
+                const imageUrl = meal.strMealThumb || `https://placehold.co/300x200/cccccc/333333?text=No+Image`;
+
+                recipeCard.innerHTML = `
+                    <img src="${imageUrl}" alt="${meal.strMeal}" class="w-full h-48 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/300x200/cccccc/333333?text=No+Image';">
+                    <div class="p-4 flex flex-col flex-grow">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">${meal.strMeal}</h3>
+                        <p class="text-gray-600 text-sm mb-3 flex-grow">${meal.strCategory ? meal.strCategory : 'N/A'} | ${meal.strArea ? meal.strArea : 'N/A'}</p>
+                        <button data-id="${meal.idMeal}" class="view-recipe-btn bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg self-start shadow-md transition duration-200 ease-in-out hover:shadow-lg">
+                            View Recipe
+                        </button>
+                    </div>
+                `;
+                recipeResults.appendChild(recipeCard);
+            });
+
+            // Attach event listeners to "View Recipe" buttons
+            document.querySelectorAll('.view-recipe-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const mealId = event.target.dataset.id;
+                    fetchRecipeDetails(mealId);
+                });
+            });
+        }
+
+        /**
+         * Fetches detailed information for a specific recipe by ID.
+         * @param {string} mealId - The ID of the meal.
+         */
+        async function fetchRecipeDetails(mealId) {
+            try {
+                const response = await fetch(`${BASE_API_URL}lookup.php?i=${mealId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                const meal = data.meals[0]; // There should only be one meal for a lookup by ID
+                if (meal) {
+                    displayRecipeDetails(meal);
+                } else {
+                    console.error('No meal found for ID:', mealId);
+                    showMessage('Recipe details not found.', 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching recipe details:', error);
+                showMessage('Failed to load recipe details. Please try again later.', 'error');
+            }
+        }
+
+        /**
+         * Displays the detailed recipe information in the modal.
+         * @param {Object} meal - The meal object with full details.
+         */
+        function displayRecipeDetails(meal) {
+            modalRecipeName.textContent = meal.strMeal;
+            modalRecipeImage.src = meal.strMealThumb || `https://placehold.co/600x400/cccccc/333333?text=No+Image`;
+            modalRecipeImage.alt = meal.strMeal;
+            modalInstructions.textContent = meal.strInstructions;
+
+            // Clear previous ingredients
+            modalIngredientsList.innerHTML = '';
+            // Populate ingredients and measures
+            for (let i = 1; i <= 20; i++) {
+                const ingredient = meal[`strIngredient${i}`];
+                const measure = meal[`strMeasure${i}`];
+                if (ingredient && ingredient.trim() !== '' && measure && measure.trim() !== '') {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = `${measure} ${ingredient}`;
+                    modalIngredientsList.appendChild(listItem);
+                }
+            }
+
+            // Add YouTube link if available
+            modalYoutubeLink.innerHTML = ''; // Clear previous link
+            if (meal.strYoutube) {
+                const youtubeLink = document.createElement('a');
+                youtubeLink.href = meal.strYoutube;
+                youtubeLink.target = '_blank'; // Open in new tab
+                youtubeLink.classList.add('text-blue-600', 'hover:underline', 'font-medium', 'inline-block', 'py-2', 'px-4', 'border', 'border-blue-600', 'rounded-lg', 'hover:bg-blue-600', 'hover:text-white', 'transition-all', 'duration-300');
+                youtubeLink.textContent = 'Watch on YouTube';
+                modalYoutubeLink.appendChild(youtubeLink);
+            }
+
+            recipeDetailsModal.classList.remove('hidden'); // Show the modal
+            // Animate modal content
+            setTimeout(() => {
+                modalContent.classList.remove('scale-95', 'opacity-0');
+                modalContent.classList.add('scale-100', 'opacity-100');
+            }, 10); // Small delay to ensure hidden is removed first
+        }
+
+        /**
+         * Fetches all meal categories from TheMealDB API.
+         */
+        async function fetchCategories() {
+            showLoading('Loading categories...');
+            hideMessage();
+            try {
+                const response = await fetch(`${BASE_API_URL}categories.php`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                displayCategories(data.categories);
+            } catch (error) {
+                console.error('Error fetching categories:', error);
+                showMessage('Failed to load categories. Please try again later.', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        /**
+         * Displays the fetched categories as clickable cards.
+         * @param {Array<Object>} categories - An array of category objects.
+         */
+        function displayCategories(categories) {
+            categoriesContainer.innerHTML = ''; // Clear existing content
+            if (!categories || categories.length === 0) {
+                showMessage('No categories found.', 'error');
+                return;
+            }
+
+            categories.forEach((category, index) => {
+                const categoryCard = document.createElement('div');
+                categoryCard.classList.add(
+                    'bg-blue-100', 'text-blue-800', 'font-semibold', 'py-3', 'px-4', 'rounded-lg',
+                    'shadow-sm', 'cursor-pointer', 'text-center', 'transform', 'hover:scale-105',
+                    'transition', 'duration-200', 'ease-in-out', 'animated-card' /* Add animated-card class */
+                );
+                categoryCard.style.animationDelay = `${index * 0.05}s`; /* Stagger animation */
+                categoryCard.textContent = category.strCategory;
+                categoryCard.dataset.categoryName = category.strCategory; // Store category name for click event
+
+                categoriesContainer.appendChild(categoryCard);
+            });
+
+            // Attach event listeners to category cards
+            document.querySelectorAll('#categoriesContainer div').forEach(card => {
+                card.addEventListener('click', (event) => {
+                    const categoryName = event.target.dataset.categoryName;
+                    if (categoryName) {
+                        fetchRecipesByCategory(categoryName);
+                        searchInput.value = ''; // Clear search input when category is selected
+                    }
+                });
+            });
+        }
+
+        /**
+         * Fetches all meal areas (cuisines) from TheMealDB API.
+         */
+        async function fetchAreas() { // New function to fetch areas
+            showLoading('Loading cuisines...');
+            hideMessage();
+            try {
+                const response = await fetch(`${BASE_API_URL}list.php?a=list`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                displayAreas(data.meals); // API returns areas under 'meals' key for this endpoint
+            } catch (error) {
+                console.error('Error fetching areas:', error);
+                showMessage('Failed to load cuisines. Please try again later.', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        /**
+         * Displays the fetched areas (cuisines) as clickable cards.
+         * @param {Array<Object>} areas - An array of area objects.
+         */
+        function displayAreas(areas) { // New function to display areas
+            areasContainer.innerHTML = ''; // Clear existing content
+            if (!areas || areas.length === 0) {
+                // If no areas are found, we could hide the section or display a message
+                areasContainer.innerHTML = '<p class="text-center text-gray-500">No cuisines available.</p>';
+                return;
+            }
+
+            areas.forEach((area, index) => {
+                const areaCard = document.createElement('div');
+                areaCard.classList.add(
+                    'bg-green-100', 'text-green-800', 'font-semibold', 'py-3', 'px-4', 'rounded-lg',
+                    'shadow-sm', 'cursor-pointer', 'text-center', 'transform', 'hover:scale-105',
+                    'transition', 'duration-200', 'ease-in-out', 'animated-card' /* Add animated-card class */
+                );
+                areaCard.style.animationDelay = `${index * 0.05}s`; /* Stagger animation */
+                areaCard.textContent = area.strArea;
+                areaCard.dataset.areaName = area.strArea; // Store area name for click event
+
+                areasContainer.appendChild(areaCard);
+            });
+
+            // Attach event listeners to area cards
+            document.querySelectorAll('#areasContainer div').forEach(card => {
+                card.addEventListener('click', (event) => {
+                    const areaName = event.target.dataset.areaName;
+                    if (areaName) {
+                        fetchRecipesByArea(areaName);
+                        searchInput.value = ''; // Clear search input when area is selected
+                    }
+                });
+            });
+        }
+
+
+        // --- Rating Section Logic ---
+
+        /**
+         * Updates the visual state of the stars based on a given rating value.
+         * @param {number} rating - The rating value (1-5) to highlight.
+         */
+        function updateStars(rating) {
+            stars.forEach((star, index) => {
+                if (index < rating) {
+                    star.classList.add('selected');
+                } else {
+                    star.classList.remove('selected');
+                }
+                star.classList.remove('hovered'); // Remove any lingering hover states
+            });
+        }
+
+        // Event listener for star clicks
+        stars.forEach(star => {
+            star.addEventListener('click', () => {
+                selectedRating = parseInt(star.dataset.value);
+                updateStars(selectedRating);
+            });
+
+            // Event listeners for star hover effects
+            star.addEventListener('mouseover', () => {
+                const hoverValue = parseInt(star.dataset.value);
+                stars.forEach((s, i) => {
+                    if (i < hoverValue) {
+                        s.classList.add('hovered');
+                    } else {
+                        s.classList.remove('hovered');
+                    }
+                });
+            });
+
+            star.addEventListener('mouseout', () => {
+                stars.forEach(s => s.classList.remove('hovered'));
+                updateStars(selectedRating); // Revert to selected state if no hover
+            });
+        });
+
+        // Event listener for submit rating button
+        submitRatingButton.addEventListener('click', () => {
+            const comment = feedbackComment.value.trim();
+
+            if (selectedRating === 0) {
+                ratingMessage.textContent = 'Please select a star rating.';
+                ratingMessage.classList.remove('hidden', 'text-green-600');
+                ratingMessage.classList.add('text-red-600');
+                return;
+            }
+
+            // In a real application, you would send this data to a server.
+            // For now, we'll just log it and show a success message.
+            console.log('Rating submitted:', {
+                rating: selectedRating,
+                comment: comment
+            });
+
+            ratingMessage.textContent = 'Thank you for your valuable feedback!';
+            ratingMessage.classList.remove('hidden', 'text-red-600');
+            ratingMessage.classList.add('text-green-600');
+
+            // Clear inputs after submission
+            selectedRating = 0;
+            updateStars(0); // Reset stars
+            feedbackComment.value = '';
+
+            // Hide the message after a few seconds
+            setTimeout(() => {
+                ratingMessage.classList.add('hidden');
+            }, 5000);
+        });
+
+
+        // Event Listeners for main app functionality
+
+        // Search button click
+        searchButton.addEventListener('click', () => {
+            const searchTerm = searchInput.value.trim();
+            if (searchTerm) {
+                fetchRecipes(searchTerm);
+            } else {
+                showMessage('Please enter a recipe name to search.', 'error');
+                recipeResults.innerHTML = ''; // Clear results if search is empty
+                clearButton.style.display = 'none';
+            }
+        });
+
+        // Enter key press in search input
+        searchInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                searchButton.click(); // Simulate a click on the search button
+            }
+        });
+
+        // Clear button click
+        clearButton.addEventListener('click', () => {
+            searchInput.value = ''; // Clear search input
+            recipeResults.innerHTML = ''; // Clear recipe cards
+            hideMessage(); // Hide any messages
+            clearButton.style.display = 'none'; // Hide clear button itself
+            fetchCategories(); // Reload categories
+            fetchAreas(); // Reload areas
+        });
+
+        // Close modal button click
+        closeModalButton.addEventListener('click', () => {
+            // Animate modal content out before hiding the modal
+            modalContent.classList.remove('scale-100', 'opacity-100');
+            modalContent.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                recipeDetailsModal.classList.add('hidden'); // Hide the modal after animation
+            }, 300); // Match this duration with the transition duration
+        });
+
+        // Close modal when clicking outside of it
+        recipeDetailsModal.addEventListener('click', (event) => {
+            if (event.target === recipeDetailsModal) {
+                // Animate modal content out before hiding the modal
+                modalContent.classList.remove('scale-100', 'opacity-100');
+                modalContent.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => {
+                    recipeDetailsModal.classList.add('hidden');
+                }, 300); // Match this duration with the transition duration
+            }
+        });
+
+        // Initial load: Fetch and display categories and areas
+        window.onload = () => {
+            fetchCategories();
+            fetchAreas(); // Call new function to fetch areas on load
+        };
+
+    </script>
+</body>
+</html>
